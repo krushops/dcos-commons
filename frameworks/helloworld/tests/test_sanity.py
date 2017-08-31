@@ -3,6 +3,8 @@ import re
 
 import dcos.marathon
 import pytest
+import retrying
+
 import sdk_cmd
 import sdk_install
 import sdk_marathon
@@ -177,15 +179,20 @@ def test_pod_info():
     assert task['status']['state'] == 'TASK_RUNNING'
 
 
+@retrying.retry(
+    wait_fixed=10000,
+    stop_max_delay=30000)
+def wait_for_nonempty_properties():
+    """'suppressed' could be missing if the scheduler recently started,
+    loop for a bit just in case
+    """
+        jsonobj = sdk_cmd.svc_cli(config.PACKAGE_NAME, config.FOLDERED_SERVICE_NAME, 'state properties', json=True)
+    assert len(jsonobj) > 0
+
+
 @pytest.mark.sanity
 def test_state_properties_get():
-    # 'suppressed' could be missing if the scheduler recently started, loop for a bit just in case:
-    def check_for_nonempty_properties():
-        jsonobj = sdk_cmd.svc_cli(config.PACKAGE_NAME,
-            sdk_utils.get_foldered_name(config.SERVICE_NAME), 'state properties', json=True)
-        return len(jsonobj) > 0
-
-    shakedown.wait_for(lambda: check_for_nonempty_properties(), timeout_seconds=30)
+    wait_for_nonempty_properties()
 
     jsonobj = sdk_cmd.svc_cli(config.PACKAGE_NAME,
         sdk_utils.get_foldered_name(config.SERVICE_NAME), 'state properties', json=True)
@@ -201,6 +208,31 @@ def test_state_properties_get():
     stdout = sdk_cmd.svc_cli(config.PACKAGE_NAME,
         sdk_utils.get_foldered_name(config.SERVICE_NAME), 'state property suppressed')
     assert stdout == "true\n"
+
+
+@retrying.retry(
+    wait_fixed=10000,
+    stop_max_delay=120000,
+    retry_on_result=lambda res: res is False)
+def wait_for_refresh_cache_fails_409conflict():
+    """caching disabled, refresh_cache should fail with a
+    409 error (eventually, once scheduler is up)
+    """
+    try:
+        sdk_cmd.svc_cli(
+            config.PACKAGE_NAME, config.FOLDERED_SERVICE_NAME, 'state refresh_cache')
+    except Exception as e:
+        if "failed: 409 Conflict" in e.args[0]:
+            return True
+    return False
+
+
+@retrying.retry(
+    wait_fixed=10000,
+    stop_max_delay=120000)
+def wait_for_cache_refresh():
+    return sdk_cmd.svc_cli(
+        config.PACKAGE_NAME, config.FOLDERED_SERVICE_NAME, 'state refresh_cache')
 
 
 @pytest.mark.sanity
@@ -221,17 +253,7 @@ def test_state_refresh_disable_cache():
     sdk_tasks.check_tasks_not_updated(sdk_utils.get_foldered_name(config.SERVICE_NAME), '', task_ids)
     config.check_running(sdk_utils.get_foldered_name(config.SERVICE_NAME))
 
-    # caching disabled, refresh_cache should fail with a 409 error (eventually, once scheduler is up):
-    def check_cache_refresh_fails_409conflict():
-        try:
-            sdk_cmd.svc_cli(config.PACKAGE_NAME,
-                sdk_utils.get_foldered_name(config.SERVICE_NAME), 'state refresh_cache')
-        except Exception as e:
-            if "failed: 409 Conflict" in e.args[0]:
-                return True
-        return False
-
-    shakedown.wait_for(lambda: check_cache_refresh_fails_409conflict(), timeout_seconds=120.)
+    wait_for_refresh_cache_fails_409conflict()
 
     marathon_config = sdk_marathon.get_config(sdk_utils.get_foldered_name(config.SERVICE_NAME))
     del marathon_config['env']['DISABLE_STATE_CACHE']
@@ -242,11 +264,8 @@ def test_state_refresh_disable_cache():
     shakedown.deployment_wait()  # ensure marathon thinks the deployment is complete too
 
     # caching reenabled, refresh_cache should succeed (eventually, once scheduler is up):
-    def check_cache_refresh():
-        return sdk_cmd.svc_cli(config.PACKAGE_NAME,
-            sdk_utils.get_foldered_name(config.SERVICE_NAME), 'state refresh_cache')
 
-    stdout = shakedown.wait_for(lambda: check_cache_refresh(), timeout_seconds=120.)
+    stdout = wait_for_cache_refresh()
     assert "Received cmd: refresh" in stdout
 
 
@@ -276,13 +295,14 @@ def test_lock():
     shakedown.deployment_wait()
     marathon_client.update_app(sdk_utils.get_foldered_name(config.SERVICE_NAME), {"instances": 2})
 
-    # Wait for second scheduler to fail
-    def fn():
-        timestamp = marathon_client.get_app(sdk_utils.get_foldered_name(config.SERVICE_NAME)).get(
-            "lastTaskFailure", {}).get("timestamp", None)
-        return timestamp != old_timestamp
+    @retrying.retry(
+        wait_fixed=10000,
+        stop_max_delay=120000)
+    def wait_for_second_scheduler_to_fail():
+        timestamp = marathon_client.get_app(FOLDERED_SERVICE_NAME).get("lastTaskFailure", {}).get("timestamp", None)
+        assert timestamp != old_timestamp
 
-    shakedown.wait_for(lambda: fn())
+    wait_for_second_scheduler_to_fail()
 
     # Verify ZK is unchanged
     zk_config_new = shakedown.get_zk_node_data(zk_path)

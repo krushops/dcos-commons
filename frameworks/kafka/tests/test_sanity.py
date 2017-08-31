@@ -4,6 +4,7 @@ import dcos
 import dcos.config
 import dcos.http
 import pytest
+import retrying
 import sdk_cmd
 import sdk_hosts
 import sdk_install as install
@@ -49,18 +50,23 @@ def configure_package(configure_security):
 
 # --------- Endpoints -------------
 
+@retrying.retry(
+    wait_fixed=10000,
+    stop_max_delay=120000,
+    retry_on_result=lambda res: res is False)
+def wait_for_endpoints():
+    ret = sdk_cmd.svc_cli(
+        config.PACKAGE_NAME, sdk_utils.get_foldered_name(config.SERVICE_NAME),
+        'endpoints {}'.format(config.DEFAULT_TASK_NAME), json=True)
+    if len(ret['address']) == config.DEFAULT_BROKER_COUNT:
+        return ret
+    return False
+
 
 @pytest.mark.smoke
 @pytest.mark.sanity
 def test_endpoints_address():
-    def fun():
-        ret = sdk_cmd.svc_cli(
-            config.PACKAGE_NAME, sdk_utils.get_foldered_name(config.SERVICE_NAME),
-            'endpoints {}'.format(config.DEFAULT_TASK_NAME), json=True)
-        if len(ret['address']) == config.DEFAULT_BROKER_COUNT:
-            return ret
-        return False
-    endpoints = shakedown.wait_for(fun)
+    endpoints = wait_for_endpoints()
     # NOTE: do NOT closed-to-extension assert len(endpoints) == _something_
     assert len(endpoints['address']) == config.DEFAULT_BROKER_COUNT
     assert len(endpoints['dns']) == config.DEFAULT_BROKER_COUNT
@@ -361,6 +367,14 @@ def test_metrics():
 
 # --------- Suppressed -------------
 
+@retrying.retry(
+    wait_fixed=10000,
+    stop_max_delay=120000)
+def wait_for_response(suppressed_url):
+    response = dcos.http.get(suppressed_url)
+    response.raise_for_status()
+    assert response.text == "true"
+
 
 @pytest.mark.smoke
 @pytest.mark.sanity
@@ -369,9 +383,4 @@ def test_suppress():
     suppressed_url = urllib.parse.urljoin(
         dcos_url, 'service/{}/v1/state/properties/suppressed'.format(sdk_utils.get_foldered_name(config.SERVICE_NAME)))
 
-    def fun():
-        response = dcos.http.get(suppressed_url)
-        response.raise_for_status()
-        return response.text == "true"
-
-    shakedown.wait_for(fun)
+    wait_for_response(suppressed_url)
