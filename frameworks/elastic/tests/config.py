@@ -60,7 +60,7 @@ def as_json(fn):
 
 
 @retrying.retry(
-    wait_fixed=10000
+    wait_fixed=10000,
     stop_max_delay=DEFAULT_KIBANA_TIMEOUT*1000)
 def check_kibana_adminrouter_integration(path):
     dcos_token = shakedown.dcos_acs_token()
@@ -71,7 +71,7 @@ def check_kibana_adminrouter_integration(path):
 
 
 @retrying.retry(
-    wait_fixed=10000
+    wait_fixed=10000,
     stop_max_delay=DEFAULT_ELASTIC_TIMEOUT*1000)
 def check_elasticsearch_index_health(index_name, color, service_name=SERVICE_NAME):
     curl_api = _curl_api(service_name, "GET")
@@ -80,7 +80,7 @@ def check_elasticsearch_index_health(index_name, color, service_name=SERVICE_NAM
 
 
 @retrying.retry(
-    wait_fixed=10000
+    wait_fixed=10000,
     stop_max_delay=DEFAULT_ELASTIC_TIMEOUT*1000)
 def wait_for_expected_nodes_to_exist(service_name=SERVICE_NAME, task_count=DEFAULT_TASK_COUNT):
     curl_api = _curl_api(service_name, "GET")
@@ -93,7 +93,7 @@ def wait_for_expected_nodes_to_exist(service_name=SERVICE_NAME, task_count=DEFAU
 
 
 @retrying.retry(
-    wait_fixed=10000
+    wait_fixed=10000,
     stop_max_delay=DEFAULT_ELASTIC_TIMEOUT*1000)
 def check_plugin_installed(plugin_name, service_name=SERVICE_NAME):
     curl_api = _curl_api(service_name, "GET")
@@ -102,7 +102,7 @@ def check_plugin_installed(plugin_name, service_name=SERVICE_NAME):
 
 
 @retrying.retry(
-    wait_fixed=10000
+    wait_fixed=10000,
     stop_max_delay=DEFAULT_ELASTIC_TIMEOUT*1000)
 def check_plugin_uninstalled(plugin_name, service_name=SERVICE_NAME):
     curl_api = _curl_api(service_name, "GET")
@@ -119,7 +119,7 @@ def _get_hosts_with_plugin(curl_api, plugin_name):
 
 
 @retrying.retry(
-    wait_fixed=10000
+    wait_fixed=10000,
     stop_max_delay=120*1000)
 def get_elasticsearch_master(service_name=SERVICE_NAME):
     # just in case, re-fetch the _curl_api in case the elasticsearch master is moved:
