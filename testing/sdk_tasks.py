@@ -16,7 +16,7 @@ def check_running(service_name, expected_task_count, timeout_seconds=DEFAULT_TIM
         wait_fixed=5000,
         stop_max_delay=timeout_seconds*1000,
         retry_on_result=lambda res: res is False)
-    def fn():
+    def wait_for_running():
         try:
             tasks = shakedown.get_service_tasks(service_name)
         except dcos.errors.DCOSHTTPException:
@@ -36,7 +36,7 @@ def check_running(service_name, expected_task_count, timeout_seconds=DEFAULT_TIM
             sorted(other_tasks)))
         return len(running_task_names) >= expected_task_count
 
-    fn()
+    wait_for_running()
 
 
 def get_task_ids(service_name, task_prefix):
@@ -50,7 +50,7 @@ def check_tasks_updated(service_name, prefix, old_task_ids, timeout_seconds=DEFA
         wait_fixed=5000,
         stop_max_delay=timeout_seconds*1000,
         retry_on_result=lambda res: res is False)
-    def fn():
+    def wait_for_update():
         try:
             task_ids = get_task_ids(service_name, prefix)
         except dcos.errors.DCOSHTTPException:
@@ -71,7 +71,7 @@ def check_tasks_updated(service_name, prefix, old_task_ids, timeout_seconds=DEFA
             all_updated = False
         return all_updated
 
-    fn()
+    wait_for_update()
 
 
 def check_tasks_not_updated(service_name, prefix, old_task_ids):
