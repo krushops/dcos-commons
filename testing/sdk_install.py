@@ -76,7 +76,7 @@ def install(
         sdk_plan.wait_for_completed_deployment(service_name, timeout_seconds)
 
         # given the above wait for plan completion, here we just wait up to 5 minutes
-        if shakedown.dcos_version_less_than("1.9"):
+        if sdk_utils.dcos_version_less_than("1.9"):
             log.info("Skipping `is_suppressed` check for %s/%s as this is only suppored starting in version 1.9",
                      package_name, service_name)
         else:
@@ -113,7 +113,7 @@ def _uninstall(
         zk=None):
     start = time.time()
 
-    if shakedown.dcos_version_less_than("1.10"):
+    if sdk_utils.dcos_version_less_than("1.10"):
         log.info('Uninstalling/janitoring {}'.format(service_name))
         try:
             shakedown.uninstall_package_and_wait(
