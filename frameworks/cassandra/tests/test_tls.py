@@ -1,4 +1,3 @@
-import json
 import os
 import textwrap
 import uuid
@@ -6,13 +5,11 @@ from typing import List
 
 import dcos.http
 import pytest
-import requests
 import shakedown
 
 import sdk_cmd
 import sdk_install
 import sdk_jobs
-import sdk_networks
 import sdk_plan
 import sdk_security
 import sdk_utils
@@ -204,7 +201,7 @@ def _get_cqlsh_for_query(query: str):
 @pytest.mark.aws
 @pytest.mark.sanity
 @pytest.mark.tls
-@sdk_utils.dcos_1_10_or_higher
+@sdk_utils.dcos_min_version('1.10')
 @sdk_utils.dcos_ee_only
 def test_tls_connection(cassandra_service_tls, dcos_ca_bundle):
     """
