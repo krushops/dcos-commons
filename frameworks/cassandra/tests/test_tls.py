@@ -44,7 +44,7 @@ def service_account():
     name = PACKAGE_NAME
     sdk_security.create_service_account(
         service_account_name=name, service_account_secret=name)
-     # TODO(mh): Fine grained permissions needs to be addressed in DCOS-16475
+    # TODO(mh): Fine grained permissions needs to be addressed in DCOS-16475
     sdk_cmd.run_cli(
         "security org groups add_user superusers {name}".format(name=name))
     yield name
@@ -56,8 +56,8 @@ def service_account():
 def cassandra_service_tls(service_account):
     sdk_install.install(
         PACKAGE_NAME,
+        service_account,
         DEFAULT_TASK_COUNT,
-        service_name=service_account,
         additional_options={
             "service": {
                 "service_account_secret": service_account,
@@ -81,8 +81,7 @@ def cassandra_service_tls(service_account):
 def get_cqlsh_tls_rc_config(
         certfile='/mnt/mesos/sandbox/ca-bundle.crt',
         hostname=DEFAULT_NODE_ADDRESS,
-        port=DEFAULT_NODE_PORT
-    ):
+        port=DEFAULT_NODE_PORT):
     """
     Returns a content of `cqlshrc` configuration file with provided hostname,
     port and certfile location. The configuration can be used for connecting
